@@ -81,8 +81,6 @@ class LayoutLLM(nn.Module):
                             text_embed.to(self.device)), dim=1).to(self.device)
         return self.llm(concat).to(self.device)
 
-    def prepare_inputs_for_generation(self, question_ids, **dtm_encoding):
-        pass
 
 def get_model(llm_model_name, layoutlm_model_name="microsoft/layoutlmv3-base", apply_ocr=False, device="cuda", token=None):
     llm_pipe = load_LLaMa_model(llm_model_name, access_token=token)
@@ -91,7 +89,7 @@ def get_model(llm_model_name, layoutlm_model_name="microsoft/layoutlmv3-base", a
     embedding_layer = Llama2Embeddings(llm_model.model.embed_tokens)
     model_wo_embedding = Llama2WithoutEmbedding(llm_model.model.layers, llm_model.model.norm)
     llm_backbone = Llama2CausalWithoutEmbedding(model_wo_embedding, llm_model.lm_head)
-    vp = Projector(768, 4096).to(device)
-    tp = Projector(768, 4096).to(device)
+    vp = Projector(768, llm_model.embed_tokens.embedding_dim).to(device)
+    tp = Projector(768, llm_model.embed_tokens.embedding_dim).to(device)
     layout_llm = LayoutLLM(layoutlm_model, llm_backbone, embedding_layer, vp, tp, device=device)
     return layout_llm, llm_pipe, layoutlm_model

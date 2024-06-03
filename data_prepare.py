@@ -36,6 +36,7 @@ def get_text_box(x):
 
 def prepare_data(args):
     llm_pipe.tokenizer.pad_token_id = llm_pipe.tokenizer.eos_token_id
+    llm_pipe.tokenizer.add_special_tokens({"additional_special_tokens": ["<bbox>", "</bbox>", "<ocr>", '</ocr>']})
     training_data = load_dataset('mPLUG/DocLocal4K', split="train")
     if args.sample:
         training_data = training_data.shuffle().select(range(20))

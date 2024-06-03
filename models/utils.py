@@ -30,3 +30,10 @@ def print_number_of_trainable_model_parameters(model):
         if param.requires_grad:
             trainable_model_params += param.numel()
     return f"trainable model parameters: {trainable_model_params}\nall model parameters: {all_model_params}\npercentage of trainable model parameters: {100 * trainable_model_params / all_model_params:.2f}%"
+
+def rescale_boxes(boxes, scale_ratio):
+    rescaled_boxes = []
+    for box in boxes:
+        rescaled_box = [int(x * scale_ratio) for x in box]
+        rescaled_boxes.append(rescaled_box)
+    return rescaled_boxes

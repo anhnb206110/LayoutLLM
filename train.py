@@ -8,28 +8,30 @@ from models.utils import print_number_of_trainable_model_parameters
 from transformers import Trainer, TrainingArguments
 
 class CustomTrainer(Trainer):
-    def compute_loss(self, model, inputs, return_outputs=False, device="cuda"):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.loss_fct = nn.CrossEntropyLoss(ignore_index=llm_pipe.tokenizer.eos_token_id)
+
+    def compute_loss(self, model, inputs, return_outputs=False):
         question_ids = inputs['question_ids'].squeeze(0)
         input_ids = inputs['input_ids'].squeeze(0)
-        attention_mask = inputs['attention_mask'].squeeze(0)
+        attention_mask = pad_input_ids(inputs['attention_mask'].squeeze(0), 315, 0)
         bbox = inputs['bbox'].squeeze(0)
         pixel_values = inputs['pixel_values'].squeeze(0)
         labels = inputs['labels'].squeeze(0)
-        outputs = model(question_ids=question_ids,
-                        input_ids=input_ids,
-                        attention_mask=attention_mask,
-                        bbox=bbox,
-                        pixel_values=pixel_values)
-        
-        shifted_labels = labels[:, 1:].contiguous()
-        shifted_logits = outputs[:, :-1, :].contiguous()
-        loss_fct = nn.CrossEntropyLoss(ignore_index=llm_pipe.tokenizer.eos_token_id)
-
-        loss = loss_fct(shifted_logits.view(-1, shifted_logits.size(-1)), shifted_labels.view(-1))
+        outputs = model.to(device)(question_ids=question_ids.to(device),
+                        input_ids=input_ids.to(device),
+                        attention_mask=attention_mask.to(device),
+                        bbox=bbox.to(device),
+                        pixel_values=pixel_values.to(device))
+        shifted_labels = labels[:, 1:].contiguous().to(device)
+        shifted_logits = outputs[:, :-1, :].contiguous().to(device)
+        loss = self.loss_fct(shifted_logits.view(-1, shifted_logits.size(-1)), shifted_labels.view(-1))
+        del question_ids, input_ids, attention_mask, bbox, pixel_values, labels, shifted_labels, shifted_logits
         return (loss, outputs) if return_outputs else loss
 
 def frozen(layout_llm_model):
-    frozen_parts = ['dtm', 'embed', 'llm']
+    frozen_parts = ['embed', 'llm']
     for part in frozen_parts:
         for param in layout_llm_model.__getattr__(part).parameters():
             param.requires_grad = False
